@@ -13,9 +13,9 @@
 
 autoload -Uz read_codesign read_codesign_user log_info log_warning
 
-if (( ! ${+CODESIGN_IDENT} )) {
-  read_codesign
-}
+#if (( ! ${+CODESIGN_IDENT} )) {
+read_codesign
+#}
 
 if (( ! ${+CODESIGN_IDENT_USER} )) {
   read_codesign_user
