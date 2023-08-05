@@ -1,6 +1,8 @@
 VCam OBS Plugin
 ---
 
+![logo](https://github.com/vcamapp/obs-plugin/assets/8188636/724d1a9a-25c4-468a-bbfd-2e98067b0a77)
+
 This is an OBS plugin to enhance the collaboration between [VCam](https://vcamapp.com/en) and [OBS Studio](https://obsproject.com/).
 
 これはmacOS用アバターアプリ [VCam](https://vcamapp.com/en) と [OBS Studio](https://obsproject.com/) をより快適に連携するためのプラグインです。
