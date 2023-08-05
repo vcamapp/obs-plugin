@@ -5,7 +5,7 @@ VCam OBS Plugin
 
 This is an OBS plugin to enhance the collaboration between [VCam](https://vcamapp.com/en) and [OBS Studio](https://obsproject.com/).
 
-これはmacOS用アバターアプリ [VCam](https://vcamapp.com/en) と [OBS Studio](https://obsproject.com/) をより快適に連携するためのプラグインです。
+これはmacOS用アバターアプリ [VCam](https://vcamapp.com/) と [OBS Studio](https://obsproject.com/) をより快適に連携するためのプラグインです。
 
 > :warning:
 > macOS 12.3 or later / macOS 12.3以降
