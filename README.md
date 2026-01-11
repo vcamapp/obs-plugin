@@ -1,7 +1,7 @@
 VCam OBS Plugin
 ---
 
-![logo](https://github.com/vcamapp/obs-plugin/assets/8188636/724d1a9a-25c4-468a-bbfd-2e98067b0a77)
+![logo](https://github.com/user-attachments/assets/1b6bc7bc-51b3-4164-b9ba-7e736a0f7eb3)
 
 This is an OBS plugin to enhance the collaboration between [VCam](https://vcamapp.com/en) and [OBS Studio](https://obsproject.com/).
 
