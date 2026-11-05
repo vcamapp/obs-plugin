@@ -20,6 +20,7 @@
 
 #import <AVFoundation/AVFoundation.h>
 
+#include <atomic>
 #include <memory>
 
 using namespace std;
@@ -50,6 +51,14 @@ struct video_info {
     atomic<bool> video_params_valid = false;
 };
 
+enum class vcam_status {
+    receiving,
+    waiting_for_video,
+    app_not_running,
+    virtual_camera_unavailable,
+    camera_access_denied,
+};
+
 struct vcam_data {
     obs_source_t *source;
     VCamDelegate *delegate;
@@ -66,9 +75,23 @@ struct vcam_data {
     AVCaptureVideoDataOutput *output;
     dispatch_queue_t queue;
 
+    // Owns the session and device state. Starting a session blocks, and OBS calls show and hide on its graphics thread.
+    dispatch_queue_t session_queue;
+    NSOperationQueue *session_operations;
+    dispatch_source_t status_timer;
+
+    atomic<bool> showing = false;
+    atomic<bool> deactivate_when_not_showing = true;
+    atomic<uint64_t> last_frame_time_ns = 0;
+    atomic<vcam_status> status = vcam_status::waiting_for_video;
+
     obs_source_frame frame;
 };
 
 // MARK: - Functions
 
 bool vcam_init(vcam_data *vcam, obs_data_t *settings);
+void vcam_shutdown(vcam_data *vcam);
+void vcam_set_showing(vcam_data *vcam, bool showing);
+void vcam_set_deactivate_when_not_showing(vcam_data *vcam, bool deactivate);
+void vcam_add_open_app_buttons(obs_properties_t *props);

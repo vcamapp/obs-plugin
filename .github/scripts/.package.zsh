@@ -180,7 +180,7 @@ ${_usage_host:-}"
     if (( _loglevel > 1  || ${+CI} )) _tarflags="v${_tarflags}"
 
     if (( package )) {
-      if [[ ! -f ${project_root}/build_macos/installer-macos.generated.pkgproj ]] {
+      if [[ ! -f ${project_root}/.build/macos/installer-macos.generated.pkgproj ]] {
         log_error 'Packages project file not found. Run the build script or the CMake build and install procedures first.'
         return 2
       }
@@ -191,7 +191,7 @@ ${_usage_host:-}"
       pushd ${project_root}
       packagesbuild \
         --build-folder ${project_root}/release/${config} \
-        ${project_root}/build_macos/installer-macos.generated.pkgproj
+        ${project_root}/.build/macos/installer-macos.generated.pkgproj
 
       if (( codesign )) {
         read_codesign_installer

@@ -19,6 +19,9 @@
 #include <obs-module.h>
 #include <plugin-support.h>
 
+#import <AppKit/AppKit.h>
+#include <time.h>
+
 #include "vcamcamera.hpp"
 
 #define AV_FOURCC_STR(code)                                                             \
@@ -27,6 +30,19 @@
         static_cast<char>((code >> 24) & 0xFF), static_cast<char>((code >> 16) & 0xFF), \
             static_cast<char>((code >> 8) & 0xFF), static_cast<char>(code & 0xFF), 0    \
     }
+
+// Long enough to tolerate the lower frame rate VCam uses while its window is covered.
+static const uint64_t no_video_timeout_ns = 3 * NSEC_PER_SEC;
+
+struct vcam_app {
+    const char *bundle_id;
+    const char *open_text_key;
+};
+
+static const vcam_app vcam_apps[] = {
+    {"com.github.tattn.VCam", "OpenVCam"},
+    {"com.github.tattn.VCam2D", "OpenVCam2D"},
+};
 
 static bool init_device_input(vcam_data *vcam, AVCaptureDevice *dev)
 {
@@ -47,26 +63,23 @@ static bool init_device_input(vcam_data *vcam, AVCaptureDevice *dev)
     return true;
 }
 
-static void start_capture(vcam_data *vcam)
+static void update_capture(vcam_data *vcam)
 {
-    if (vcam->session && !vcam->session.running)
-        [vcam->session startRunning];
-}
+    bool should_run = vcam->device && (vcam->showing || !vcam->deactivate_when_not_showing);
+    if (should_run == vcam->session.running)
+        return;
 
-static void clear_capture(vcam_data *vcam)
-{
-    if (vcam->session && vcam->session.running)
+    if (should_run)
+        [vcam->session startRunning];
+    else
         [vcam->session stopRunning];
 
-    obs_source_output_video(vcam->source, nullptr);
+    obs_log(LOG_INFO, "Capture %s", should_run ? "started" : "stopped");
 }
 
-static void capture_device(vcam_data *vcam, AVCaptureDevice *dev, obs_data_t *settings)
+static void attach_device(vcam_data *vcam, AVCaptureDevice *dev)
 {
-    const char *name = dev.localizedName.UTF8String;
-    obs_data_set_string(settings, "device_name", name);
-    obs_data_set_string(settings, "device", dev.uniqueID.UTF8String);
-    obs_log(LOG_INFO, "Selected device '%s'", name);
+    obs_log(LOG_INFO, "Selected device '%s'", dev.localizedName.UTF8String);
 
     vcam->session.sessionPreset = AVCaptureSessionPresetHigh;
 
@@ -74,12 +87,14 @@ static void capture_device(vcam_data *vcam, AVCaptureDevice *dev, obs_data_t *se
         return;
 
     vcam->device = dev;
-    start_capture(vcam);
-    return;
+    update_capture(vcam);
 }
 
-static inline void handle_connect_capture(vcam_data *vcam, AVCaptureDevice *dev, obs_data_t *settings)
+static inline void handle_connect(vcam_data *vcam, AVCaptureDevice *dev)
 {
+    if (!dev)
+        return;
+
     if (![dev.uniqueID isEqualTo:vcam->uid])
         return;
 
@@ -93,21 +108,15 @@ static inline void handle_connect_capture(vcam_data *vcam, AVCaptureDevice *dev,
             "resuming capture",
             dev.uniqueID.UTF8String);
 
-    capture_device(vcam, dev, settings);
-}
-
-static inline void handle_connect(vcam_data *vcam, AVCaptureDevice *dev, obs_data_t *settings)
-{
-    if (!dev)
-        return;
-
-    handle_connect_capture(vcam, dev, settings);
-    obs_source_update_properties(vcam->source);
+    attach_device(vcam, dev);
 }
 
 static void remove_device(vcam_data *vcam)
 {
-    clear_capture(vcam);
+    if (vcam->session.running)
+        [vcam->session stopRunning];
+
+    obs_source_output_video(vcam->source, nullptr);
 
     [vcam->session removeInput:vcam->device_input];
 
@@ -115,8 +124,11 @@ static void remove_device(vcam_data *vcam)
     vcam->device = nullptr;
 }
 
-static inline void handle_disconnect_capture(vcam_data *vcam, AVCaptureDevice *dev)
+static inline void handle_disconnect(vcam_data *vcam, AVCaptureDevice *dev)
 {
+    if (!dev)
+        return;
+
     if (![dev.uniqueID isEqualTo:vcam->uid])
         return;
 
@@ -130,13 +142,42 @@ static inline void handle_disconnect_capture(vcam_data *vcam, AVCaptureDevice *d
     remove_device(vcam);
 }
 
-static inline void handle_disconnect(vcam_data *vcam, AVCaptureDevice *dev)
+static bool is_vcam_app_running(void)
 {
-    if (!dev)
+    for (const auto &app : vcam_apps) {
+        if ([NSRunningApplication runningApplicationsWithBundleIdentifier:@(app.bundle_id)].count > 0)
+            return true;
+    }
+    return false;
+}
+
+static vcam_status current_status(vcam_data *vcam)
+{
+    uint64_t last_frame_time_ns = vcam->last_frame_time_ns;
+    if (last_frame_time_ns != 0 && clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - last_frame_time_ns < no_video_timeout_ns)
+        return vcam_status::receiving;
+
+    if ([AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo] != AVAuthorizationStatusAuthorized)
+        return vcam_status::camera_access_denied;
+
+    if (!vcam->device)
+        return vcam_status::virtual_camera_unavailable;
+
+    if (!is_vcam_app_running())
+        return vcam_status::app_not_running;
+
+    return vcam_status::waiting_for_video;
+}
+
+static void update_status(vcam_data *vcam)
+{
+    // The status is only shown in the properties window, which keeps the source showing while it is open.
+    if (!vcam->showing)
         return;
 
-    handle_disconnect_capture(vcam, dev);
-    obs_source_update_properties(vcam->source);
+    vcam_status status = current_status(vcam);
+    if (vcam->status.exchange(status) != status)
+        obs_source_update_properties(vcam->source);
 }
 
 static bool init_session(vcam_data *vcam)
@@ -162,8 +203,18 @@ static bool init_session(vcam_data *vcam)
     }
 
     auto queue = dispatch_queue_create(NULL, NULL);
-    if (!queue) {
+    auto session_queue = dispatch_queue_create(NULL, NULL);
+    if (!queue || !session_queue) {
         obs_log(LOG_ERROR, "Could not create dispatch queue");
+        return false;
+    }
+
+    auto session_operations = [[NSOperationQueue alloc] init];
+    session_operations.underlyingQueue = session_queue;
+
+    auto status_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, session_queue);
+    if (!status_timer) {
+        obs_log(LOG_ERROR, "Could not create status timer");
         return false;
     }
 
@@ -171,6 +222,9 @@ static bool init_session(vcam_data *vcam)
     vcam->delegate = delegate;
     vcam->output = output;
     vcam->queue = queue;
+    vcam->session_queue = session_queue;
+    vcam->session_operations = session_operations;
+    vcam->status_timer = status_timer;
 
     [vcam->session addOutput:vcam->output];
     [vcam->output setSampleBufferDelegate:vcam->delegate queue:vcam->queue];
@@ -184,36 +238,97 @@ bool vcam_init(vcam_data *vcam, obs_data_t *settings)
         return false;
 
     vcam->uid = @(obs_data_get_string(settings, "device"));
+    vcam->deactivate_when_not_showing = obs_data_get_bool(settings, "deactivate_when_not_showing");
 
     NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
     vcam->disconnect_observer.reset([nc addObserverForName:AVCaptureDeviceWasDisconnectedNotification object:nil
-                                                     queue:[NSOperationQueue mainQueue]
+                                                     queue:vcam->session_operations
                                                 usingBlock:^(NSNotification *note) {
         handle_disconnect(vcam, note.object);
     }]);
 
     vcam->connect_observer.reset([nc addObserverForName:AVCaptureDeviceWasConnectedNotification object:nil
-                                                  queue:[NSOperationQueue mainQueue]
+                                                  queue:vcam->session_operations
                                              usingBlock:^(NSNotification *note) {
-        handle_connect(vcam, note.object, settings);
+        handle_connect(vcam, note.object);
     }]);
 
-    AVCaptureDevice *dev = [AVCaptureDevice deviceWithUniqueID:vcam->uid];
+    [vcam->session_operations addOperationWithBlock:^{
+        AVCaptureDevice *dev = [AVCaptureDevice deviceWithUniqueID:vcam->uid];
 
-    if (!dev) {
-        if (vcam->uid.length < 1)
-            obs_log(LOG_INFO, "No device selected");
+        if (dev)
+            attach_device(vcam, dev);
         else
-            obs_log(LOG_WARNING,
-                    "Could not initialize device "
-                    "with unique ID '%s'",
-                    vcam->uid.UTF8String);
-        return true;
-    }
+            obs_log(LOG_WARNING, "Could not find device with unique ID '%s'", vcam->uid.UTF8String);
+    }];
 
-    capture_device(vcam, dev, settings);
+    dispatch_source_set_timer(vcam->status_timer, DISPATCH_TIME_NOW, NSEC_PER_SEC, NSEC_PER_SEC / 4);
+    dispatch_source_set_event_handler(vcam->status_timer, ^{
+        update_status(vcam);
+    });
+    dispatch_resume(vcam->status_timer);
 
     return true;
+}
+
+void vcam_shutdown(vcam_data *vcam)
+{
+    vcam->connect_observer.reset();
+    vcam->disconnect_observer.reset();
+    dispatch_source_cancel(vcam->status_timer);
+
+    [vcam->session_operations addOperationWithBlock:^{
+        if (vcam->session.running)
+            [vcam->session stopRunning];
+    }];
+    [vcam->session_operations waitUntilAllOperationsAreFinished];
+    dispatch_sync(vcam->session_queue, ^{});
+
+    // Frame callbacks and queued operations hold a raw pointer to vcam, so none may outlive this function.
+    [vcam->output setSampleBufferDelegate:nil queue:nil];
+    dispatch_sync(vcam->queue, ^{});
+}
+
+void vcam_set_showing(vcam_data *vcam, bool showing)
+{
+    vcam->showing = showing;
+    [vcam->session_operations addOperationWithBlock:^{
+        update_capture(vcam);
+        update_status(vcam);
+    }];
+}
+
+void vcam_set_deactivate_when_not_showing(vcam_data *vcam, bool deactivate)
+{
+    vcam->deactivate_when_not_showing = deactivate;
+    [vcam->session_operations addOperationWithBlock:^{
+        update_capture(vcam);
+    }];
+}
+
+static bool open_vcam_app(obs_properties_t *props, obs_property_t *property, void *data)
+{
+    UNUSED_PARAMETER(props);
+    UNUSED_PARAMETER(property);
+
+    auto app = static_cast<const vcam_app *>(data);
+    NSWorkspace *workspace = [NSWorkspace sharedWorkspace];
+    NSURL *url = [workspace URLForApplicationWithBundleIdentifier:@(app->bundle_id)];
+    if (url)
+        [workspace openApplicationAtURL:url
+                          configuration:[NSWorkspaceOpenConfiguration configuration]
+                      completionHandler:nil];
+    return false;
+}
+
+void vcam_add_open_app_buttons(obs_properties_t *props)
+{
+    NSWorkspace *workspace = [NSWorkspace sharedWorkspace];
+    for (const auto &app : vcam_apps) {
+        if ([workspace URLForApplicationWithBundleIdentifier:@(app.bundle_id)])
+            obs_properties_add_button2(props, app.bundle_id, obs_module_text(app.open_text_key), open_vcam_app,
+                                       const_cast<vcam_app *>(&app));
+    }
 }
 
 static inline video_colorspace get_colorspace(CMFormatDescriptionRef desc)
@@ -366,6 +481,8 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     CMItemCount count = CMSampleBufferGetNumSamples(sampleBuffer);
     if (count < 1 || !vcam)
         return;
+
+    vcam->last_frame_time_ns = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
 
     CMTime target_pts = CMSampleBufferGetOutputPresentationTimeStamp(sampleBuffer);
     CMTime target_pts_nano = CMTimeConvertScale(target_pts, NSEC_PER_SEC, kCMTimeRoundingMethod_Default);

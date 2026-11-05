@@ -231,7 +231,7 @@ ${_usage_host:-}"
         )
 
         cmake_build_args+=(--preset ${_preset} --parallel --config ${config} -- ONLY_ACTIVE_ARCH=NO -arch arm64 -arch x86_64)
-        cmake_install_args+=(build_macos --config ${config} --prefix "${project_root}/release/${config}")
+        cmake_install_args+=(.build/macos --config ${config} --prefix "${project_root}/release/${config}")
 
         local -a xcbeautify_opts=()
         if (( _loglevel == 0 )) xcbeautify_opts+=(--quiet)

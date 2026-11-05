@@ -58,7 +58,24 @@ static void *vcam_source_create(obs_data_t *settings, obs_source_t *source)
 static void vcam_source_destroy(void *data)
 {
     auto vcam = static_cast<vcam_data *>(data);
+    vcam_shutdown(vcam);
     delete vcam;
+}
+
+static void vcam_source_update(void *data, obs_data_t *settings)
+{
+    vcam_set_deactivate_when_not_showing(static_cast<vcam_data *>(data),
+                                         obs_data_get_bool(settings, "deactivate_when_not_showing"));
+}
+
+static void vcam_source_show(void *data)
+{
+    vcam_set_showing(static_cast<vcam_data *>(data), true);
+}
+
+static void vcam_source_hide(void *data)
+{
+    vcam_set_showing(static_cast<vcam_data *>(data), false);
 }
 
 static void vcam_source_defaults(obs_data_t *settings)
@@ -69,13 +86,44 @@ static void vcam_source_defaults(obs_data_t *settings)
     obs_data_set_default_int(settings, "input_format", -1);
     obs_data_set_default_int(settings, "color_space", -1);
     obs_data_set_default_int(settings, "video_range", -1);
+    obs_data_set_default_bool(settings, "deactivate_when_not_showing", true);
+}
+
+static const char *status_text_key(vcam_status status)
+{
+    switch (status) {
+        case vcam_status::receiving:
+            return "Status.Receiving";
+        case vcam_status::waiting_for_video:
+            return "Status.WaitingForVideo";
+        case vcam_status::app_not_running:
+            return "Status.AppNotRunning";
+        case vcam_status::virtual_camera_unavailable:
+            return "Status.VirtualCameraUnavailable";
+        case vcam_status::camera_access_denied:
+            return "Status.CameraAccessDenied";
+    }
 }
 
 static obs_properties_t *vcam_source_properties(void *data)
 {
-    UNUSED_PARAMETER(data);
+    auto vcam = static_cast<vcam_data *>(data);
     obs_properties_t *props = obs_properties_create();
-    // TODO: Support some options
+
+    if (vcam) {
+        vcam_status status = vcam->status;
+        obs_property_t *status_text =
+            obs_properties_add_text(props, "status", obs_module_text(status_text_key(status)), OBS_TEXT_INFO);
+
+        if (status != vcam_status::receiving && status != vcam_status::waiting_for_video)
+            obs_property_text_set_info_type(status_text, OBS_TEXT_INFO_WARNING);
+
+        if (status == vcam_status::app_not_running || status == vcam_status::virtual_camera_unavailable)
+            vcam_add_open_app_buttons(props);
+    }
+
+    obs_properties_add_bool(props, "deactivate_when_not_showing", obs_module_text("DeactivateWhenNotShowing"));
+
     return props;
 }
 
@@ -88,6 +136,9 @@ static struct obs_source_info image_source_info = {
     .destroy = vcam_source_destroy,
     .get_defaults = vcam_source_defaults,
     .get_properties = vcam_source_properties,
+    .update = vcam_source_update,
+    .show = vcam_source_show,
+    .hide = vcam_source_hide,
     .icon_type = OBS_ICON_TYPE_CAMERA,
 };
 
