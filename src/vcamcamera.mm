@@ -487,21 +487,17 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     CMTime target_pts = CMSampleBufferGetOutputPresentationTimeStamp(sampleBuffer);
     CMTime target_pts_nano = CMTimeConvertScale(target_pts, NSEC_PER_SEC, kCMTimeRoundingMethod_Default);
 
-    CMFormatDescriptionRef desc = CMSampleBufferGetFormatDescription(sampleBuffer);
-    CMMediaType type = CMFormatDescriptionGetMediaType(desc);
-    if (type == kCMMediaType_Video) {
-        obs_source_frame *frame = &vcam->frame;
-        frame->timestamp = target_pts_nano.value;
+    obs_source_frame *frame = &vcam->frame;
+    frame->timestamp = target_pts_nano.value;
 
-        if (!update_frame(vcam, frame, sampleBuffer)) {
-            obs_source_output_video(vcam->source, nullptr);
-            return;
-        }
-
-        obs_source_output_video(vcam->source, frame);
-
-        CVImageBufferRef img = CMSampleBufferGetImageBuffer(sampleBuffer);
-        CVPixelBufferUnlockBaseAddress(img, kCVPixelBufferLock_ReadOnly);
+    if (!update_frame(vcam, frame, sampleBuffer)) {
+        obs_source_output_video(vcam->source, nullptr);
+        return;
     }
+
+    obs_source_output_video(vcam->source, frame);
+
+    CVImageBufferRef img = CMSampleBufferGetImageBuffer(sampleBuffer);
+    CVPixelBufferUnlockBaseAddress(img, kCVPixelBufferLock_ReadOnly);
 }
 @end
