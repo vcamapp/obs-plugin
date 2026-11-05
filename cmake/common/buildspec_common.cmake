@@ -69,7 +69,9 @@ function(_setup_obs_studio)
   elseif(OS_MACOS)
     set(_cmake_generator "Xcode")
     set(_cmake_arch "-DCMAKE_OSX_ARCHITECTURES:STRING='arm64;x86_64'")
-    set(_cmake_extra "-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+    # The pinned libobs treats warnings as errors and uses APIs deprecated at the current deployment target
+    set(_cmake_extra "-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}"
+                     "-DCMAKE_C_FLAGS=-Wno-deprecated-declarations" "-DCMAKE_CXX_FLAGS=-Wno-deprecated-declarations")
     set(_cmake_version "3.0.0")
   endif()
 

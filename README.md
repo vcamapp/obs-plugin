@@ -8,7 +8,7 @@ This is an OBS plugin to enhance the collaboration between [VCam](https://vcamap
 これはmacOS用アバターアプリ [VCam](https://vcamapp.com/) と [OBS Studio](https://obsproject.com/) をより快適に連携するためのプラグインです。
 
 > :warning:
-> macOS 12.3 or later / macOS 12.3以降
+> macOS 15.0 or later / macOS 15.0以降
 
 # Feature / 機能
 

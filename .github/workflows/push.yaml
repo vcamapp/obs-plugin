@@ -30,7 +30,7 @@ jobs:
   create-release:
     name: Create Release 🛫
     if: github.ref_type == 'tag'
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build-project
     defaults:
       run:
@@ -58,7 +58,7 @@ jobs:
           esac
 
       - name: Download Build Artifacts 📥
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v8
         if: fromJSON(steps.check.outputs.validTag)
         id: download
 
@@ -105,7 +105,7 @@ jobs:
       - name: Create Release 🛫
         if: fromJSON(steps.check.outputs.validTag)
         id: create_release
-        uses: softprops/action-gh-release@d4e8205d7e959a9107da6396278b2f1f07af0f9b
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3
         with:
           draft: true
           prerelease: ${{ fromJSON(steps.check.outputs.prerelease) }}

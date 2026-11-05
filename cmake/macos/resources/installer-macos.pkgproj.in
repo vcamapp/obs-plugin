@@ -63,7 +63,7 @@
 															<key>GID</key>
 															<integer>80</integer>
 															<key>PATH</key>
-															<string>../release/@CMAKE_INSTALL_CONFIG_NAME@/@CMAKE_PROJECT_NAME@.plugin</string>
+															<string>../../release/@CMAKE_INSTALL_CONFIG_NAME@/@CMAKE_PROJECT_NAME@.plugin</string>
 															<key>PATH_TYPE</key>
 															<integer>1</integer>
 															<key>PERMISSIONS</key>

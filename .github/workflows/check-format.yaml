@@ -3,9 +3,9 @@ on:
   workflow_call:
 jobs:
   clang-format:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: clang-format check 🐉
@@ -15,9 +15,9 @@ jobs:
           failCondition: error
 
   cmake-format:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: cmake-format check 🎛️

@@ -33,10 +33,10 @@
     },
     "tools": {
         "packages": {
-            "version": "1.2.10",
-            "baseUrl": "http://s.sudre.free.fr/Software/files",
+            "version": "1.2.11",
+            "baseUrl": "https://github.com/packagesdev/packages/releases/download/v1.2.11-GM",
             "label": "Packages.app",
-            "hash": "6afdd25386295974dad8f078b8f1e41cabebd08e72d970bf92f707c7e48b16c9"
+            "hash": "c7d599842562b18f8dfb6e9f76fc915dde7716a263c967aaf1fe11e17d283ded"
         }
     },
     "platformConfig": {
