@@ -30,15 +30,17 @@ After installation, please restart OBS Studio.
 
 # How to use / 使い方
 
+To use this plugin, the virtual camera needs to be turned on. For the steps, see [Virtual Camera Settings](https://docs.vcamapp.com/en/vcam/virtual-camera/).
+
 1. Click the "+ button" of sources in OBS Studio and select "VCam" to add it as a source.
-2. Open VCam app, go to the settings, and select "Experiment" to enable the "Use the new virtual camera" option.
-3. OBS Studio will show the avatar from VCam.
+2. Open VCam app, and OBS Studio will show the avatar from VCam.
 
 <div>
 
+このプラグインを使うには、仮想カメラを有効にしておく必要があります。手順は[仮想カメラ設定](https://docs.vcamapp.com/vcam/virtual-camera/)をご覧ください。
+
 1. OBS Studioのソースの「+ボタン」をクリックし、「VCam」を選択して、ソースに追加します。
-2. VCamアプリを開き、設定メニューから「実験的な機能」を選択し、「新しい仮想カメラを使用する」を有効にします。
-3. OBS StudioにVCamの映像が映ります。
+2. VCamアプリを開くと、OBS StudioにVCamの映像が映ります。
 
 </div>
 
@@ -54,4 +56,4 @@ Eagerly awaiting Pull Requests!
 
 Pull Requestをお待ちしています！
 
-Twttier: [@vcamapp](https://twitter.com/vcamapp)
+X: [@vcamapp](https://x.com/vcamapp)

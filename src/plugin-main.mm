@@ -30,10 +30,13 @@ static const char *image_source_get_name(void *unused)
     return obs_module_text("VCam");
 }
 
+static void update_buffering(vcam_data *vcam, obs_data_t *settings)
+{
+    obs_source_set_async_unbuffered(vcam->source, !obs_data_get_bool(settings, "buffering"));
+}
+
 static void *vcam_source_create(obs_data_t *settings, obs_source_t *source)
 {
-    UNUSED_PARAMETER(settings);
-
     unique_ptr<vcam_data> vcam;
 
     try {
@@ -49,8 +52,7 @@ static void *vcam_source_create(obs_data_t *settings, obs_source_t *source)
         return nullptr;
     }
 
-    // TODO: Consider whether this is necessary
-    // obs_source_set_async_unbuffered(vcam->source, false);
+    update_buffering(vcam.get(), settings);
 
     return vcam.release();
 }
@@ -64,8 +66,9 @@ static void vcam_source_destroy(void *data)
 
 static void vcam_source_update(void *data, obs_data_t *settings)
 {
-    vcam_set_deactivate_when_not_showing(static_cast<vcam_data *>(data),
-                                         obs_data_get_bool(settings, "deactivate_when_not_showing"));
+    auto vcam = static_cast<vcam_data *>(data);
+    vcam_set_deactivate_when_not_showing(vcam, obs_data_get_bool(settings, "deactivate_when_not_showing"));
+    update_buffering(vcam, settings);
 }
 
 static void vcam_source_show(void *data)
@@ -87,6 +90,7 @@ static void vcam_source_defaults(obs_data_t *settings)
     obs_data_set_default_int(settings, "color_space", -1);
     obs_data_set_default_int(settings, "video_range", -1);
     obs_data_set_default_bool(settings, "deactivate_when_not_showing", true);
+    obs_data_set_default_bool(settings, "buffering", true);
 }
 
 static const char *status_text_key(vcam_status status)
@@ -123,6 +127,7 @@ static obs_properties_t *vcam_source_properties(void *data)
     }
 
     obs_properties_add_bool(props, "deactivate_when_not_showing", obs_module_text("DeactivateWhenNotShowing"));
+    obs_properties_add_bool(props, "buffering", obs_module_text("Buffering"));
 
     return props;
 }
